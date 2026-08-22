@@ -1112,11 +1112,11 @@ function renderRes(res) {
   const m=['🥇','🥈','🥉'];
   list.innerHTML=entries.map(([name,pts],i)=>{
     if(resEditable) {
-      const safeId=name.replace(/[^a-zA-Z0-9_ء-ي]/g,'_');
+      const safeId=btoa(unescape(encodeURIComponent(name))).replace(/[^a-zA-Z0-9]/g,'');
       return `
-      <div class="lbrow">
+      <div class="lbrow" style="flex-wrap:wrap">
         <span class="lbrank">${m[i]||'#'+(i+1)}</span>
-        <span class="lbname">${name}</span>
+        <input type="text" id="rn-${safeId}" value="${name}" style="flex:1;min-width:90px;padding:5px 8px;border-radius:7px;border:1.5px solid #334155;background:#0f172a;color:#f1f5f9">
         <input type="number" id="rv-${safeId}" value="${pts}" style="width:70px;text-align:center;padding:5px;border-radius:7px;border:1.5px solid #334155;background:#0f172a;color:#f1f5f9">
         <button onclick="editRes('${name}','${safeId}')" style="background:#166534;border:none;color:#bbf7d0;padding:5px 10px;border-radius:7px;cursor:pointer;font-size:12px;font-weight:700">حفظ</button>
         <button onclick="delRes('${name}')" style="background:#7f1d1d;border:none;color:#fca5a5;padding:5px 10px;border-radius:7px;cursor:pointer;font-size:12px;font-weight:700">حذف</button>
@@ -1130,11 +1130,23 @@ function renderRes(res) {
     </div>`;
   }).join('');
 }
-function editRes(name,safeId) {
-  const el=document.getElementById('rv-'+safeId);
-  const val=parseInt(el.value,10);
+function editRes(oldName,safeId) {
+  const nameEl=document.getElementById('rn-'+safeId);
+  const valEl=document.getElementById('rv-'+safeId);
+  const newName=nameEl.value.trim();
+  const val=parseInt(valEl.value,10);
+  if(!newName) { notif('اكتب اسم صحيح'); return; }
   if(isNaN(val)) { notif('اكتب رقم صحيح'); return; }
-  db.ref(MP+'/results/'+name).set(val,()=>{notif('تم الحفظ ✓');goResults(true);});
+  if(newName===oldName) {
+    db.ref(MP+'/results/'+oldName).set(val,()=>{notif('تم الحفظ ✓');goResults(true);});
+  } else {
+    const u={};
+    u['results/'+oldName]=null;
+    u['results/'+newName]=val;
+    dbUpd(u);
+    notif('تم الحفظ ✓');
+    setTimeout(()=>goResults(true),300);
+  }
 }
 function delRes(name) {
   if(!confirm('حذف نتيجة '+name+'؟')) return;
