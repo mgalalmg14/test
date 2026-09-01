@@ -561,16 +561,20 @@ function toggleViewerSteal() {
   notif(en?'تم تفعيل سرقة المشاهدين ✓':'تم إيقاف سرقة المشاهدين');
 }
 function endMatch() {
-  if(!MD) return;
-  const res = MD.results || {};
-  [[MD.nameA,MD.scoreA],[MD.nameB,MD.scoreB]].forEach(([n,s]) => { if(n) res[n]=(res[n]||0)+(s||0); });
-  dbUpd({active:false, results:res});
-  document.getElementById('bstart').style.display = 'block';
-  document.getElementById('astart').style.display = 'none';
-  document.getElementById('sc-card').style.display = 'none';
-  document.getElementById('a-stat').textContent = 'منتهية';
-  document.getElementById('a-stat').className = 'badge b-red';
-  notif('انتهت المباراة — تم حفظ النتائج');
+  if(!db) { notif('Firebase غير متصل'); return; }
+  db.ref(MP).once('value', snap => {
+    const d = snap.val();
+    if(!d) { notif('لا توجد بيانات مباراة'); return; }
+    const res = d.results || {};
+    [[d.nameA,d.scoreA],[d.nameB,d.scoreB]].forEach(([n,s]) => { if(n) res[n]=(res[n]||0)+(s||0); });
+    dbUpd({active:false, results:res});
+    document.getElementById('bstart').style.display = 'block';
+    document.getElementById('astart').style.display = 'none';
+    document.getElementById('sc-card').style.display = 'none';
+    document.getElementById('a-stat').textContent = 'منتهية';
+    document.getElementById('a-stat').className = 'badge b-red';
+    notif('انتهت المباراة — تم حفظ النتائج ✓');
+  });
 }
 function newMatch() {
   document.getElementById('bstart').style.display = 'block';
@@ -666,9 +670,17 @@ function onMD(d) {
     document.getElementById('a-sa').textContent = d.scoreA||0;
     document.getElementById('a-sb').textContent = d.scoreB||0;
     if(d.active) {
+      document.getElementById('bstart').style.display = 'none';
+      document.getElementById('astart').style.display = 'block';
       document.getElementById('sc-card').style.display = 'block';
       document.getElementById('a-code-big').textContent = d.code||'';
       document.getElementById('a-code').textContent = 'الكود: '+(d.code||'');
+      document.getElementById('a-stat').textContent = 'نشطة ✓';
+      document.getElementById('a-stat').className = 'badge b-green';
+    } else {
+      document.getElementById('bstart').style.display = 'block';
+      document.getElementById('astart').style.display = 'none';
+      document.getElementById('sc-card').style.display = 'none';
     }
     const vbtn = document.getElementById('vsteal-btn');
     if(vbtn) {
@@ -1085,11 +1097,24 @@ let pendingStealPts = 0;
 function submitViewerName() {
   const name = document.getElementById('thief-name').value.trim();
   if(!name) { notif('اكتب اسمك الأول'); return; }
+  if(!db) { notif('لا يوجد اتصال بالإنترنت، حاول تاني'); return; }
+  const btn = document.querySelector('#name-modal button');
+  if(btn) { btn.disabled = true; btn.textContent = 'جاري الحفظ...'; }
   const ref = db.ref(MP+'/viewerScores/'+name);
-  ref.transaction(v => (v||0) + pendingStealPts);
-  document.getElementById('name-modal').style.display='none';
-  document.getElementById('thief-name').value='';
-  notif('تم حفظ '+pendingStealPts+' درجة باسم '+name+' ✓');
+  ref.transaction(v => (v||0) + pendingStealPts, (error, committed) => {
+    if(btn) { btn.disabled = false; btn.textContent = '✓ حفظ النقاط'; }
+    if(error) {
+      notif('❌ فشل الحفظ، حاول تاني: '+error.message);
+      return;
+    }
+    if(!committed) {
+      notif('❌ الحفظ لم يتم، حاول تاني');
+      return;
+    }
+    document.getElementById('name-modal').style.display='none';
+    document.getElementById('thief-name').value='';
+    notif('تم حفظ '+pendingStealPts+' درجة باسم '+name+' فعليًا ✓');
+  });
 }
 
 // RESULTS
