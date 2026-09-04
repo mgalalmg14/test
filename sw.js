@@ -1,6 +1,4 @@
-// Service Worker بسيط - مطلوب فقط عشان يفعّل خاصية "تثبيت التطبيق" في المتصفح
-const CACHE_NAME = 'risk-app-v1';
-
+// Service Worker - يفعّل خاصية "تثبيت التطبيق" ويضمن جلب أحدث نسخة دائمًا (بدون كاش قديم)
 self.addEventListener('install', (event) => {
   self.skipWaiting();
 });
@@ -10,6 +8,8 @@ self.addEventListener('activate', (event) => {
 });
 
 self.addEventListener('fetch', (event) => {
-  // مرور مباشر - مفيش تخزين مؤقت، بس ده كافي لتفعيل خاصية "قابل للتثبيت"
-  event.respondWith(fetch(event.request));
+  // شبكة أولاً دائمًا - يمنع المتصفح من عرض نسخة قديمة محفوظة عند التحديث
+  event.respondWith(
+    fetch(event.request, { cache: 'no-store' }).catch(() => fetch(event.request))
+  );
 });
