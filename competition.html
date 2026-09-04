@@ -130,6 +130,7 @@ button:hover{opacity:.88}
 .cho.el{opacity:.25;cursor:not-allowed;text-decoration:line-through}
 .cltr{width:25px;height:25px;border-radius:50%;background:#1e293b;border:1px solid #475569;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:800;flex-shrink:0;color:#94a3b8}
 .resbox{border-radius:10px;padding:12px;text-align:center;font-size:14px;font-weight:700;margin-top:.875rem}
+@keyframes bigicon-pop{0%{transform:scale(.3);opacity:0}60%{transform:scale(1.15);opacity:1}100%{transform:scale(1);opacity:1}}
 .rok{background:#064e3b;border:1px solid #10b981;color:#a7f3d0}
 .rno{background:#450a0a;border:1px solid #ef4444;color:#fca5a5}
 .rto{background:#1c1917;border:1px solid #78716c;color:#d6d3d1}
@@ -403,6 +404,9 @@ button:hover{opacity:.88}
 
 <!-- Q MODAL -->
 <div class="overlay" id="qmod">
+  <div id="mq-bigicon" style="display:none;position:fixed;inset:0;z-index:900;align-items:center;justify-content:center;pointer-events:none">
+    <div id="mq-bigicon-inner" style="font-size:110px;animation:bigicon-pop .45s ease-out"></div>
+  </div>
   <div class="modal">
     <div class="stlen" id="stlen">⚡ تم سرقة هذا السؤال منك — شاهد فقط</div>
     <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:.875rem">
@@ -808,6 +812,7 @@ function renderQModal(aq, d) {
   const h = (d && d[hk]) || {};
 
   document.getElementById('qmod').classList.add('on');
+  document.getElementById('mq-bigicon').style.display='none';
   document.getElementById('stlen').style.display = (aq.stolen && !canAns) ? 'block' : 'none';
   document.getElementById('mq-pts').textContent = aq.pts+' درجة';
   document.getElementById('mq-turn').textContent = aq.stolen ? (iAmThief?'🔥 سرقتها!':'🔥 اتسرقت منك') : (mine?'سؤالك':'سؤال خصمك — راقب أو اسرقه');
@@ -926,7 +931,7 @@ function pick(chosen) {
   });
   const scored=ok?aq.pts:0;
   snd(ok,aq.pts);
-  showRes(ok,scored);
+  showRes(ok,scored,false,aq);
   const u={};
   u['closedQs/'+aq.key]=true;
   if(ok) u['score'+(S.player==='a'?'A':'B')]=(MD['score'+(S.player==='a'?'A':'B')]||0)+scored;
@@ -941,7 +946,7 @@ function timeout(aq) {
     const el=document.getElementById('ch-'+k);
     if(el){el.disabled=true;if(k===aq.correct)el.classList.add('ok');}
   });
-  showRes(false,0,true);
+  showRes(false,0,true,aq);
   const u={};
   u['closedQs/'+aq.key]=true;
   u['turn']=S.player==='a'?'b':'a';
@@ -955,18 +960,42 @@ function snd(ok,pts) {
   if(a){a.currentTime=0;a.play().catch(()=>{});}
 }
 
-function showRes(ok,scored,to) {
+function showRes(ok,scored,to,aq) {
   const el=document.getElementById('mq-res');
   el.style.display='block';
-  if(to){el.className='resbox rto';el.textContent='⏰ انتهى الوقت — لا نقاط';}
-  else if(ok){el.className='resbox rok';el.textContent='✓ إجابة صحيحة! +'+scored+' درجة';}
-  else{el.className='resbox rno';el.textContent='✗ إجابة خاطئة — لا نقاط';}
+  const icon=document.getElementById('mq-bigicon');
+  const iconInner=document.getElementById('mq-bigicon-inner');
+  icon.style.display='flex';
+  iconInner.style.animation='none';
+  void iconInner.offsetWidth;
+  iconInner.style.animation='bigicon-pop .45s ease-out';
+  const ltrs={a:'أ',b:'ب',c:'ج',d:'د'};
+  let correctLine='';
+  if(aq) correctLine = `<div style="margin-top:6px;font-size:12px;font-weight:700;color:#a7f3d0">✓ الإجابة الصحيحة: ${ltrs[aq.correct]||''} — ${aq[aq.correct]||''}</div>`;
+  if(to){
+    el.className='resbox rto';
+    iconInner.textContent='⏰';
+    iconInner.style.color='#d6d3d1';
+    el.innerHTML='⏰ انتهى الوقت — لا نقاط'+correctLine;
+  } else if(ok){
+    el.className='resbox rok';
+    iconInner.textContent='✓';
+    iconInner.style.color='#10b981';
+    el.innerHTML='✓ إجابة صحيحة! +'+scored+' درجة';
+  } else {
+    el.className='resbox rno';
+    iconInner.textContent='✗';
+    iconInner.style.color='#ef4444';
+    el.innerHTML='✗ إجابة خاطئة — لا نقاط'+correctLine;
+  }
+  setTimeout(()=>{ icon.style.display='none'; },900);
   document.getElementById('mq-next').innerHTML=`<button class="blue" style="max-width:180px" onclick="closeModal()">التالي ←</button>`;
 }
 
 function closeModal() {
   clearInterval(timerInt);
   document.getElementById('qmod').classList.remove('on');
+  document.getElementById('mq-bigicon').style.display='none';
 }
 
 // SPECTATOR
