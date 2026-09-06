@@ -753,9 +753,10 @@ function updateComp(d) {
     if(aq.key !== curAQKey) { curAQKey = aq.key; curAnswered = false; }
     if(!curAnswered) renderQModal(aq, d);
   } else if(d.activeQ && d.activeQ.status==='closed') {
-    document.getElementById('qmod').classList.remove('on');
-    clearInterval(timerInt);
-    curAQKey = null; curAnswered = false;
+    if(!curAnswered) {
+      document.getElementById('qmod').classList.remove('on');
+      clearInterval(timerInt);
+    }
   }
 }
 
@@ -1216,7 +1217,7 @@ function delRes(name) {
 }
 
 // BOOT
-const APP_VERSION = "1";
+const APP_VERSION = "2";
 function isStandaloneApp() {
   return window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone === true;
 }
