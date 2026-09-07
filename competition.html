@@ -229,6 +229,7 @@ button:hover{opacity:.88}
         <button id="vsteal-btn" onclick="toggleViewerSteal()" style="width:100%;margin-top:10px;background:#ffffff;color:#0f172a;font-size:17px;font-weight:900;padding:16px;border-radius:12px">🃏 تفعيل سرقة المشاهدين</button>
       </div>
       <button class="w100 gray sm" style="margin-top:10px" onclick="goResults(true)">✏️ تعديل النتائج</button>
+      <button class="w100 gray sm" style="margin-top:8px" onclick="goResults(true,'viewerScores')">👀 نقاط المشاهدين المعلّقة</button>
     </div>
     <!-- Live scores -->
     <div class="card" id="sc-card" style="display:none">
@@ -400,11 +401,11 @@ button:hover{opacity:.88}
 <!-- RESULTS -->
 <div class="scr" id="results">
   <div class="topbar">
-    <div style="font-size:14px;font-weight:700">📊 نتائج المباريات</div>
+    <div id="res-title" style="font-size:14px;font-weight:700">📊 نتائج المباريات</div>
     <button class="gray sm" onclick="resBack()">رجوع</button>
   </div>
   <div style="padding:1rem;max-width:580px;margin:0 auto">
-    <div style="font-size:12px;color:#64748b;margin-bottom:.875rem">مجموع نقاط جميع المباريات طوال الفصل</div>
+    <div id="res-sub" style="font-size:12px;color:#64748b;margin-bottom:.875rem">مجموع نقاط جميع المباريات طوال الفصل</div>
     <div id="res-list"></div>
     <div id="res-empty" style="display:none;text-align:center;padding:3rem;color:#475569">لا توجد نتائج بعد</div>
   </div>
@@ -1157,11 +1158,17 @@ function submitViewerName() {
 
 // RESULTS
 let resEditable = false;
-function goResults(editable) {
+let resPath = 'results';
+function goResults(editable, path) {
   resEditable = !!editable;
+  resPath = path || 'results';
   go('results');
+  document.getElementById('res-title').textContent = resPath==='viewerScores' ? '👀 نقاط المشاهدين المعلّقة' : '📊 نتائج المباريات';
+  document.getElementById('res-sub').textContent = resPath==='viewerScores'
+    ? 'نقاط سُرقت من المشاهدين ولسه محدش دخل بيها مباراة بنفس الاسم'
+    : 'مجموع نقاط جميع المباريات طوال الفصل';
   if(!db){document.getElementById('res-empty').style.display='block';return;}
-  db.ref(MP+'/results').once('value',snap=>renderRes(snap.val()||{}));
+  db.ref(MP+'/'+resPath).once('value',snap=>renderRes(snap.val()||{}));
 }
 function resBack() {
   if(S.role==='admin') go('admin'); else go('login');
@@ -1201,23 +1208,23 @@ function editRes(oldName,safeId) {
   if(!newName) { notif('اكتب اسم صحيح'); return; }
   if(isNaN(val)) { notif('اكتب رقم صحيح'); return; }
   if(newName===oldName) {
-    db.ref(MP+'/results/'+oldName).set(val,()=>{notif('تم الحفظ ✓');goResults(true);});
+    db.ref(MP+'/'+resPath+'/'+oldName).set(val,()=>{notif('تم الحفظ ✓');goResults(true,resPath);});
   } else {
     const u={};
-    u['results/'+oldName]=null;
-    u['results/'+newName]=val;
+    u[resPath+'/'+oldName]=null;
+    u[resPath+'/'+newName]=val;
     dbUpd(u);
     notif('تم الحفظ ✓');
-    setTimeout(()=>goResults(true),300);
+    setTimeout(()=>goResults(true,resPath),300);
   }
 }
 function delRes(name) {
-  if(!confirm('حذف نتيجة '+name+'؟')) return;
-  db.ref(MP+'/results/'+name).remove(()=>{notif('تم الحذف ✓');goResults(resEditable);});
+  if(!confirm('حذف '+name+'؟')) return;
+  db.ref(MP+'/'+resPath+'/'+name).remove(()=>{notif('تم الحذف ✓');goResults(resEditable,resPath);});
 }
 
 // BOOT
-const APP_VERSION = "2";
+const APP_VERSION = "3";
 function isStandaloneApp() {
   return window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone === true;
 }
