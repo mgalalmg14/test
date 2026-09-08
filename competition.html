@@ -257,7 +257,7 @@ button:hover{opacity:.88}
       </div>
       <!-- Add Q form -->
       <div id="aqform" style="display:none;margin-top:.875rem;background:#0f172a;border-radius:10px;padding:.875rem;border:1px solid #334155">
-        <div style="font-size:12px;font-weight:700;color:#60a5fa;margin-bottom:7px">إضافة سؤال لـ: <span id="aq-lsnm"></span></div>
+        <div style="font-size:12px;font-weight:700;color:#60a5fa;margin-bottom:7px" id="aqform-title">إضافة سؤال لـ: <span id="aq-lsnm"></span></div>
         <input class="inp2" id="nq-t" placeholder="نص السؤال" style="margin-bottom:6px">
         <div class="g2" style="margin-bottom:6px">
           <input class="inp2" id="nq-a" placeholder="إجابة أ">
@@ -278,8 +278,8 @@ button:hover{opacity:.88}
           <input class="inp2" id="nq-tm" type="number" placeholder="الوقت(ث)" value="30" min="5">
         </div>
         <div style="display:flex;gap:7px">
-          <button class="green sm" onclick="addQ()" style="flex:1">✓ حفظ السؤال</button>
-          <button class="gray sm" onclick="document.getElementById('aqform').style.display='none'">إلغاء</button>
+          <button class="green sm" id="aqform-savebtn" onclick="saveQ()" style="flex:1">✓ حفظ السؤال</button>
+          <button class="gray sm" onclick="closeQForm()">إلغاء</button>
         </div>
       </div>
     </div>
@@ -622,13 +622,41 @@ function delLesson(idx) {
   lessons.splice(idx,1); selLs.delete(idx);
   saveLessons(); renderLessons(); renderChecks();
 }
+let editQi = null;
 function openAddQ(idx) {
   editLs = idx;
-  document.getElementById('aq-lsnm').textContent = lessons[idx].name;
+  editQi = null;
+  document.getElementById('aqform-title').innerHTML = 'إضافة سؤال لـ: <span id="aq-lsnm">'+lessons[idx].name+'</span>';
+  document.getElementById('aqform-savebtn').textContent = '✓ حفظ السؤال';
+  ['nq-t','nq-a','nq-b','nq-c','nq-d'].forEach(id => document.getElementById(id).value='');
+  document.getElementById('nq-cor').value = 'a';
+  document.getElementById('nq-pts').value = 10;
+  document.getElementById('nq-tm').value = 30;
   document.getElementById('aqform').style.display = 'block';
   document.getElementById('nq-t').focus();
 }
-function addQ() {
+function openEditQ(li,qi) {
+  editLs = li;
+  editQi = qi;
+  const q = lessons[li].questions[qi];
+  document.getElementById('aqform-title').innerHTML = '✏️ تعديل سؤال في: <span>'+lessons[li].name+'</span>';
+  document.getElementById('aqform-savebtn').textContent = '✓ حفظ التعديل';
+  document.getElementById('nq-t').value = q.text;
+  document.getElementById('nq-a').value = q.a;
+  document.getElementById('nq-b').value = q.b;
+  document.getElementById('nq-c').value = q.c;
+  document.getElementById('nq-d').value = q.d;
+  document.getElementById('nq-cor').value = q.correct;
+  document.getElementById('nq-pts').value = q.pts;
+  document.getElementById('nq-tm').value = q.time;
+  document.getElementById('aqform').style.display = 'block';
+  document.getElementById('nq-t').focus();
+}
+function closeQForm() {
+  document.getElementById('aqform').style.display = 'none';
+  editQi = null;
+}
+function saveQ() {
   const text = document.getElementById('nq-t').value.trim();
   const a = document.getElementById('nq-a').value.trim();
   const b = document.getElementById('nq-b').value.trim();
@@ -639,10 +667,18 @@ function addQ() {
   const time = parseInt(document.getElementById('nq-tm').value)||30;
   if(!text||!a||!b||!c||!d) { notif('أكمل جميع الحقول'); return; }
   if(!lessons[editLs].questions) lessons[editLs].questions = [];
-  lessons[editLs].questions.push({text,a,b,c,d,correct:cor,pts,time});
+  if(editQi===null) {
+    lessons[editLs].questions.push({text,a,b,c,d,correct:cor,pts,time});
+    notif('تمت إضافة السؤال ✓');
+  } else {
+    lessons[editLs].questions[editQi] = {text,a,b,c,d,correct:cor,pts,time};
+    lessons[editLs].questions.sort((x,y)=>x.pts-y.pts);
+    notif('تم حفظ التعديل ✓ (وترتيب الأسئلة حسب الدرجة)');
+  }
   ['nq-t','nq-a','nq-b','nq-c','nq-d'].forEach(id => document.getElementById(id).value='');
+  editQi = null;
+  document.getElementById('aqform').style.display = 'none';
   saveLessons(); renderLessons(); renderChecks();
-  notif('تمت إضافة السؤال ✓');
 }
 function delQ(li,qi) {
   if(!confirm('حذف السؤال؟')) return;
@@ -669,6 +705,7 @@ function renderLessons() {
           <span class="qtxt">${q.text}</span>
           <span class="qpts">${q.pts}د</span>
           <span class="qtime">${q.time}ث</span>
+          <button onclick="openEditQ(${li},${qi})" style="background:none;border:none;cursor:pointer;font-size:12px;color:#60a5fa;padding:0 2px">✏️</button>
           <button onclick="delQ(${li},${qi})" style="background:none;border:none;cursor:pointer;font-size:12px;color:#64748b;padding:0 2px">✕</button>
         </div>`).join('')
       : '<div style="font-size:11px;color:#475569;text-align:center;padding:6px">لا توجد أسئلة</div>'}
@@ -1224,7 +1261,7 @@ function delRes(name) {
 }
 
 // BOOT
-const APP_VERSION = "3";
+const APP_VERSION = "4";
 function isStandaloneApp() {
   return window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone === true;
 }
