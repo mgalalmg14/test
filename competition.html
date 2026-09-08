@@ -183,6 +183,7 @@ button:hover{opacity:.88}
     </div>
     <div class="sep"></div>
     <button class="w100 gray" onclick="goResults()">📊 نتائج المباريات</button>
+    <button class="w100 gray" style="margin-top:8px" onclick="goResults(false,'viewerScores')">👀 نقاط المشاهدين المعلّقة</button>
   </div>
 </div>
 
@@ -1261,7 +1262,7 @@ function delRes(name) {
 }
 
 // BOOT
-const APP_VERSION = "4";
+const APP_VERSION = "5";
 function isStandaloneApp() {
   return window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone === true;
 }
