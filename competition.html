@@ -227,7 +227,11 @@ button:hover{opacity:.88}
           <button class="red sm" onclick="endMatch()">⏹ إنهاء المباراة</button>
           <button class="gray sm" onclick="newMatch()">🔄 مباراة جديدة</button>
         </div>
-        <button id="vsteal-btn" onclick="toggleViewerSteal()" style="width:100%;margin-top:10px;background:#ffffff;color:#0f172a;font-size:17px;font-weight:900;padding:16px;border-radius:12px">🃏 تفعيل سرقة المشاهدين</button>
+        <div style="display:flex;gap:7px;align-items:center;margin-top:10px">
+          <label style="font-size:12px;color:#94a3b8;white-space:nowrap">عدد المسموح لهم بالسرقة:</label>
+          <input type="number" id="vsteal-max" value="2" min="1" max="10" style="width:60px;text-align:center;padding:6px;border-radius:7px;border:1.5px solid #334155;background:#0f172a;color:#f1f5f9">
+        </div>
+        <button id="vsteal-btn" onclick="toggleViewerSteal()" style="width:100%;margin-top:8px;background:#ffffff;color:#0f172a;font-size:17px;font-weight:900;padding:16px;border-radius:12px">🃏 تفعيل سرقة المشاهدين</button>
       </div>
       <button class="w100 gray sm" style="margin-top:10px" onclick="goResults(true)">✏️ تعديل النتائج</button>
       <button class="w100 gray sm" style="margin-top:8px" onclick="goResults(true,'viewerScores')">👀 نقاط المشاهدين المعلّقة</button>
@@ -567,12 +571,14 @@ function toggleViewerSteal() {
   if(!MD || !MD.active) { notif('لازم تبدأ مباراة الأول'); return; }
   const en = !(MD.viewerSteal && MD.viewerSteal.enabled);
   const isOpenNow = MD.activeQ && MD.activeQ.status==='open';
+  const maxClaims = Math.max(1, parseInt(document.getElementById('vsteal-max').value)||2);
   dbUpd({viewerSteal:{
     enabled:en,
+    maxClaims:maxClaims,
     qkey: (en && isOpenNow) ? MD.activeQ.key : null,
-    claimId:null, answer:null, resolved:false, correct:null
+    claims:{}
   }});
-  notif(en?'تم تفعيل سرقة المشاهدين ✓':'تم إيقاف سرقة المشاهدين');
+  notif(en?('تم تفعيل سرقة المشاهدين ✓ (حتى '+maxClaims+' مشاهدين)'):'تم إيقاف سرقة المشاهدين');
 }
 function endMatch() {
   if(!db) { notif('Firebase غير متصل'); return; }
@@ -847,7 +853,7 @@ function openQ(li,qi) {
     elim:[],status:'open',startedAt:Date.now()};
   dbSet('activeQ',aq);
   if(MD.viewerSteal && MD.viewerSteal.enabled) {
-    dbUpd({viewerSteal:{enabled:true,qkey:aq.key,claimId:null,answer:null,resolved:false,correct:null}});
+    dbUpd({viewerSteal:{enabled:true,maxClaims:MD.viewerSteal.maxClaims||2,qkey:aq.key,claims:{}}});
   }
 }
 
@@ -1108,36 +1114,40 @@ function updateThiefUI(d, ltrs) {
     hideThief();
     return;
   }
-  if(vs.qkey !== lastVQkey) { lastVQkey = vs.qkey; }
-  if(!vs.claimId) {
-    // no one claimed yet: show the thief button to everyone
+  const claims = vs.claims || {};
+  const max = vs.maxClaims || 1;
+  const myClaim = claims[S.vid];
+  const count = Object.keys(claims).length;
+
+  // زرار السرقة يظهر لو لسه فيه أماكن فاضية وأنا لسه ما سرقتش
+  if(!myClaim && count < max) {
     overlay.style.display='flex';
-    ansOverlay.style.display='none';
-    statusCard.style.display='none';
-  } else if(vs.claimId===S.vid) {
-    // this viewer is the thief
+  } else {
     overlay.style.display='none';
-    statusCard.style.display='none';
-    if(!vs.resolved) {
-      ansOverlay.style.display='flex';
-      document.getElementById('ta-text').textContent = d.activeQ.text;
-      document.getElementById('ta-choices').innerHTML = ['a','b','c','d'].map(k=>
-        `<button class="cho" onclick="viewerPick('${k}')"><span class="cltr">${ltrs[k]}</span>${d.activeQ[k]}</button>`).join('');
+  }
+
+  // نافذة الإجابة تظهر بس لو أنا سرقت ولسه ما جاوبتش
+  if(myClaim && !myClaim.resolved) {
+    ansOverlay.style.display='flex';
+    document.getElementById('ta-text').textContent = d.activeQ.text;
+    document.getElementById('ta-choices').innerHTML = ['a','b','c','d'].map(k=>
+      `<button class="cho" onclick="viewerPick('${k}')"><span class="cltr">${ltrs[k]}</span>${d.activeQ[k]}</button>`).join('');
+  } else {
+    ansOverlay.style.display='none';
+  }
+
+  // شريط الحالة العام يظهر لأي حد فيه ناس اشتركوا في السرقة
+  if(count>0) {
+    statusCard.style.display='block';
+    const resolvedList = Object.values(claims).filter(c=>c.resolved);
+    if(resolvedList.length < count) {
+      statusTxt.textContent = `🥷 ${count} من المشاهدين بيحاولوا السرقة الآن... (الحد الأقصى ${max})`;
     } else {
-      ansOverlay.style.display='none';
+      const correctCount = resolvedList.filter(c=>c.correct).length;
+      statusTxt.textContent = `🥷 كل السارقين جاوبوا (${count}) — ${correctCount} إجابة صحيحة`;
     }
   } else {
-    // someone else claimed it
-    overlay.style.display='none';
-    ansOverlay.style.display='none';
-    statusCard.style.display='block';
-    if(!vs.resolved) {
-      statusTxt.textContent='🥷 أحد المشاهدين بيحاول يسرق السؤال الآن...';
-    } else {
-      statusTxt.textContent = vs.answer
-        ? ('🥷 السارق اختار: '+(ltrs[vs.answer]||vs.answer)+' — '+(vs.correct?'إجابة صحيحة ✓':'إجابة خاطئة ✗'))
-        : '';
-    }
+    statusCard.style.display='none';
   }
 }
 
@@ -1149,10 +1159,14 @@ function hideThief() {
 
 function claimSteal() {
   if(!MD || !MD.viewerSteal || !MD.viewerSteal.qkey) return;
-  const ref = db.ref(MP+'/viewerSteal/claimId');
+  const max = MD.viewerSteal.maxClaims || 1;
+  const ref = db.ref(MP+'/viewerSteal/claims');
   ref.transaction(cur => {
-    if(cur===null || cur===undefined) return S.vid;
-    return; // already claimed, abort
+    cur = cur || {};
+    if(cur[S.vid]) return cur;
+    if(Object.keys(cur).length >= max) return; // مفيش أماكن فاضية - يلغي المحاولة
+    cur[S.vid] = {answer:null, resolved:false, correct:null};
+    return cur;
   });
 }
 
@@ -1161,7 +1175,11 @@ function viewerPick(choice) {
   const aq = MD.activeQ;
   const ok = choice===aq.correct;
   document.getElementById('thief-answer-overlay').style.display='none';
-  dbUpd({'viewerSteal/answer':choice,'viewerSteal/resolved':true,'viewerSteal/correct':ok});
+  const u = {};
+  u['viewerSteal/claims/'+S.vid+'/answer'] = choice;
+  u['viewerSteal/claims/'+S.vid+'/resolved'] = true;
+  u['viewerSteal/claims/'+S.vid+'/correct'] = ok;
+  dbUpd(u);
   if(ok) {
     pendingStealPts = aq.pts;
     document.getElementById('name-modal').style.display='flex';
@@ -1262,7 +1280,7 @@ function delRes(name) {
 }
 
 // BOOT
-const APP_VERSION = "5";
+const APP_VERSION = "6";
 function isStandaloneApp() {
   return window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone === true;
 }
