@@ -544,33 +544,39 @@ function adminOut() {
 
 function startMatch() {
   if(!selLs.size) { notif('اختر درساً على الأقل'); return; }
+  if(!db) { notif('Firebase غير متصل'); return; }
   const na = document.getElementById('na').value || 'الطالب الأول';
   const nb = document.getElementById('nb').value || 'الطالب الثاني';
   const code = genCode();
   const mls = lessons.filter((_,i) => selLs.has(i));
-  const vs = (MD && MD.viewerScores) ? Object.assign({}, MD.viewerScores) : {};
-  const scoreAInit = vs[na] || 0;
-  const scoreBInit = vs[nb] || 0;
-  delete vs[na]; delete vs[nb];
-  dbSet('', {
-    active:true, code, turn:'a',
-    nameA:na, nameB:nb, scoreA:scoreAInit, scoreB:scoreBInit,
-    closedQs:{}, helpsA:{double:false,time:false,steal:false,elim:false},
-    helpsB:{double:false,time:false,steal:false,elim:false},
-    lessons:mls, allLessons:lessons, activeQ:null,
-    results: MD&&MD.results ? MD.results : {},
-    viewerScores: vs,
-    viewerSteal: {enabled:false,qkey:null,claimId:null,answer:null,resolved:false,correct:null}
+  db.ref(MP+'/viewerScores').once('value', snap => {
+    const vs = snap.val() || {};
+    const scoreAInit = vs[na] || 0;
+    const scoreBInit = vs[nb] || 0;
+    delete vs[na]; delete vs[nb];
+    db.ref(MP+'/results').once('value', snap2 => {
+      const res = snap2.val() || {};
+      dbSet('', {
+        active:true, code, turn:'a',
+        nameA:na, nameB:nb, scoreA:scoreAInit, scoreB:scoreBInit,
+        closedQs:{}, helpsA:{double:false,time:false,steal:false,elim:false},
+        helpsB:{double:false,time:false,steal:false,elim:false},
+        lessons:mls, allLessons:lessons, activeQ:null,
+        results: res,
+        viewerScores: vs,
+        viewerSteal: {enabled:false,maxClaims:2,qkey:null,claims:{},usedNames:{}}
+      });
+      document.getElementById('bstart').style.display = 'none';
+      document.getElementById('astart').style.display = 'block';
+      document.getElementById('a-code-big').textContent = code;
+      document.getElementById('a-code').textContent = 'الكود: '+code;
+      document.getElementById('a-stat').textContent = 'نشطة ✓';
+      document.getElementById('a-stat').className = 'badge b-green';
+      document.getElementById('sc-card').style.display = 'block';
+      if(scoreAInit>0||scoreBInit>0) notif('تم استدعاء نقاط سرقة سابقة! ('+na+': '+scoreAInit+', '+nb+': '+scoreBInit+') بدأت المباراة! الكود: '+code);
+      else notif('بدأت المباراة! الكود: '+code);
+    });
   });
-  document.getElementById('bstart').style.display = 'none';
-  document.getElementById('astart').style.display = 'block';
-  document.getElementById('a-code-big').textContent = code;
-  document.getElementById('a-code').textContent = 'الكود: '+code;
-  document.getElementById('a-stat').textContent = 'نشطة ✓';
-  document.getElementById('a-stat').className = 'badge b-green';
-  document.getElementById('sc-card').style.display = 'block';
-  if(scoreAInit>0||scoreBInit>0) notif('تم استدعاء نقاط سرقة سابقة! بدأت المباراة! الكود: '+code);
-  else notif('بدأت المباراة! الكود: '+code);
 }
 function toggleViewerSteal() {
   if(!MD || !MD.active) { notif('لازم تبدأ مباراة الأول'); return; }
@@ -1311,7 +1317,7 @@ function delRes(name) {
 }
 
 // BOOT
-const APP_VERSION = "11";
+const APP_VERSION = "12";
 function isStandaloneApp() {
   return window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone === true;
 }
