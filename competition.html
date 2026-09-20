@@ -265,6 +265,13 @@ button:hover{opacity:.88}
         <input class="inp2" id="nl-inp" placeholder="اسم الدرس" style="flex:1" onkeydown="if(event.key==='Enter')addLesson()">
         <button class="blue sm" onclick="addLesson()">إضافة</button>
       </div>
+      <div class="sep"></div>
+      <div style="font-size:12px;font-weight:700;color:#94a3b8;margin-bottom:7px">💾 النسخة الاحتياطية</div>
+      <div style="display:flex;gap:7px">
+        <button class="gray sm" style="flex:1" onclick="exportLessons()">📥 تصدير نسخة احتياطية</button>
+        <button class="gray sm" style="flex:1" onclick="document.getElementById('import-file').click()">📤 استيراد نسخة احتياطية</button>
+        <input type="file" id="import-file" accept=".json" style="display:none" onchange="importLessons(event)">
+      </div>
       <!-- Add Q form -->
       <div id="aqform" style="display:none;margin-top:.875rem;background:#0f172a;border-radius:10px;padding:.875rem;border:1px solid #334155">
         <div style="font-size:12px;font-weight:700;color:#60a5fa;margin-bottom:7px" id="aqform-title">إضافة سؤال لـ: <span id="aq-lsnm"></span></div>
@@ -637,6 +644,48 @@ function addLesson() {
   document.getElementById('nl-inp').value = '';
   saveLessons(); renderLessons(); renderChecks();
   notif('تمت إضافة الدرس ✓');
+}
+function exportLessons() {
+  if(!lessons.length) { notif('لا يوجد دروس لتصديرها'); return; }
+  const data = JSON.stringify(lessons, null, 2);
+  const blob = new Blob([data], {type:'application/json'});
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  const dateStr = new Date().toISOString().slice(0,10);
+  a.href = url;
+  a.download = 'risk-lessons-backup-'+dateStr+'.json';
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+  notif('تم تنزيل النسخة الاحتياطية ✓ احفظها في مكان آمن');
+}
+function importLessons(event) {
+  const file = event.target.files[0];
+  if(!file) return;
+  const reader = new FileReader();
+  reader.onload = function(e) {
+    let imported;
+    try {
+      imported = JSON.parse(e.target.result);
+    } catch(err) {
+      notif('❌ الملف تالف أو مش بصيغة صحيحة');
+      event.target.value = '';
+      return;
+    }
+    if(!Array.isArray(imported)) {
+      notif('❌ الملف ده مش نسخة احتياطية صحيحة');
+      event.target.value = '';
+      return;
+    }
+    const msg = 'هيتم استبدال كل الدروس الحالية ('+lessons.length+' درس) بالنسخة المستوردة ('+imported.length+' درس). متأكد؟';
+    if(!confirm(msg)) { event.target.value = ''; return; }
+    lessons = imported;
+    saveLessons(); renderLessons(); renderChecks();
+    notif('تم استيراد النسخة الاحتياطية ✓ ('+imported.length+' درس)');
+    event.target.value = '';
+  };
+  reader.readAsText(file);
 }
 function delLesson(idx) {
   if(!confirm('حذف الدرس وكل أسئلته؟')) return;
@@ -1317,7 +1366,7 @@ function delRes(name) {
 }
 
 // BOOT
-const APP_VERSION = "12";
+const APP_VERSION = "13";
 function isStandaloneApp() {
   return window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone === true;
 }
